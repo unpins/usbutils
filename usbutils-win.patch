@@ -1,0 +1,47 @@
+--- a/usbmisc.c
++++ b/usbmisc.c
+@@ -10,7 +10,9 @@
+ #include <unistd.h>
+ #include <limits.h>
+ #include <iconv.h>
++#ifndef _WIN32
+ #include <langinfo.h>
++#endif
+ 
+ #include "usbmisc.h"
+ 
+@@ -20,6 +22,7 @@
+ 
+ /* ---------------------------------------------------------------------- */
+ 
++#ifndef _WIN32  /* -D <path> selection reads /dev/bus/usb via readlink: Linux-only */
+ static int readlink_recursive(const char *path, char *buf, size_t bufsize)
+ {
+ 	char temp[PATH_MAX + 1];
+@@ -130,6 +133,14 @@
+ 	libusb_free_device_list(list, 1);
+ 	return dev;
+ }
++#else
++libusb_device *get_usb_device(libusb_context *ctx, const char *path)
++{
++	(void) ctx;
++	(void) path;
++	return NULL;
++}
++#endif
+ 
+ static char *get_dev_string_ascii(libusb_device_handle *dev, size_t size,
+                                   uint8_t id)
+@@ -164,7 +175,11 @@
+ 	char *result, *result_end;
+ 	size_t in_bytes_left, out_bytes_left;
+ 
++#ifdef _WIN32
++	conv = iconv_open("UTF-8", "UTF-16LE");
++#else
+ 	conv = iconv_open(nl_langinfo(CODESET), "UTF-16LE");
++#endif
+ 
+ 	if (conv == (iconv_t) -1)
+ 		return NULL;
