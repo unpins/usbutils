@@ -32,6 +32,9 @@
     ulib.mkStandaloneFlake {
       inherit self;
       name = "usbutils";
+      # lsusb.c carries SPDX GPL-2.0-or-later (verified upstream); the embedded
+      # usb.ids and a stray GPL-2.0-only file don't change the program's license.
+      license = "GPL-2.0-or-later";
       smoke = [ "--version" ];
       # `usbutils --version` dispatches to lsusb (defaultApplet) -> "lsusb
       # (usbutils) 019"; match the suite name.
