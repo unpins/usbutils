@@ -1,13 +1,13 @@
 # usbutils
 
-Standalone build of [usbutils](https://github.com/gregkh/usbutils) — `lsusb`, the tool that lists the USB devices connected to your system, in a single binary.
+[usbutils](https://github.com/gregkh/usbutils) — `lsusb`, the tool that lists the USB devices connected to your system, in a single self-contained binary built natively for Linux, macOS, and Windows.
 
 [![CI](https://github.com/unpins/usbutils/actions/workflows/usbutils.yml/badge.svg)](https://github.com/unpins/usbutils/actions)
 ![Linux](https://img.shields.io/badge/Linux-✓-success?logo=linux&logoColor=white)
 ![Windows](https://img.shields.io/badge/Windows-✓-success?logo=windows&logoColor=white)
 ![macOS](https://img.shields.io/badge/macOS-✓-success?logo=apple&logoColor=white)
 
-Part of the [unpins](https://unpins.org) project — native single-binary builds with no third-party runtime dependencies.
+Part of the [unpins](https://unpins.org) catalog; install it with [`unpin`](https://github.com/unpins/unpin): `unpin install usbutils`.
 
 ## Usage
 
