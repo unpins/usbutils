@@ -1,5 +1,5 @@
 {
-  description = "Standalone build of usbutils (lsusb + usbhid-dump) — self-contained static multicall binary, embedded usb.ids";
+  description = "usbutils (lsusb + usbhid-dump) as a single self-contained binary with usb.ids embedded";
 
   nixConfig = {
     extra-substituters = [ "https://unpins.cachix.org" ];
