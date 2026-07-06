@@ -9,7 +9,7 @@
 # lets meson keep doing the link: lsusb and usbhid-dump share no .c file and
 # collide only on `main` (lsusb's helpers are static; usbhid-dump's globals are
 # all `uhd_*`), so we just rename each main and build a single executable from
-# both source sets + the argv[0] dispatcher (lib.multicallDispatcherC).
+# both source sets + the argv[0] dispatcher (lib.multicallTableDispatcherC).
 #
 # Self-contained names: usbutils 019 resolves names only via udev's binary hwdb
 # (Linux-only, no Windows/macOS analogue). ./names.c restores the historical
@@ -25,8 +25,11 @@
 # lsusb.c / names.c #ifdef those call sites. names_init() is always called (the
 # embed parser), so vendor/product names resolve everywhere.
 #
-# Shared by the native `build` (pkgsStatic) and `windowsBuild` paths; isDarwin/
-# isWindows come from the INPUT derivation's stdenv.
+# Windows-only now (the native + darwin `build` self-folds via the unpin-llvm
+# engine, like pciutils/htop). The residual isDarwin branches are inert under
+# the sole windowsBuild caller. isWindows comes from the INPUT derivation's
+# stdenv (under windowsBuild `pkgs` is the x86_64-linux root — the cross lives
+# inside mingwStaticCross — so `pkgs.stdenv` would wrongly say "not Windows").
 { lib }:
 { pkgs, usbutils }:
 let
@@ -109,9 +112,14 @@ let
       printf "\nexecutable('usbutils', %s, dependencies: [libusb, libiconv], install: true)\n" \
         "${srcExpr}" >> meson.build
 
+      # Dispatcher reads multicall/applets.list as a TSV of <applet>\t<fn-base>
+      # (C symbol <fn-base>_main). The source-level rename above turns each
+      # tool's main into <tool>_main, so fn-base IS the tool name — one
+      # self-mapping row per applet (lsusb only on Windows; usbhid-dump folded
+      # in off-Windows).
       mkdir -p multicall
-      printf '%s\n' ${lib.concatStringsSep " " applets} > multicall/apps.list
-${lib.multicallDispatcherC { name = "usbutils"; defaultApplet = "lsusb"; }}
+      for t in ${lib.concatStringsSep " " applets}; do printf '%s\t%s\n' "$t" "$t"; done > multicall/applets.list
+${lib.multicallTableDispatcherC { name = "usbutils"; defaultApplet = "lsusb"; }}
     '';
 
     # One binary: usbutils. Applets are argv[0] aliases (withAliases), not files.
