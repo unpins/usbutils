@@ -1,6 +1,6 @@
 # Fold usbutils into ONE multicall binary at $out/bin/usbutils that dispatches
-# `lsusb` and `usbhid-dump` by argv[0] (a bare/unknown `usbutils` runs lsusb,
-# the defaultApplet). `lib.withAliases` then embeds `lsusb` / `usbhid-dump` as
+# `lsusb` and `usbhid-dump` by argv[0] (a bare/unknown `usbutils` is not a
+# program, so it lists). `lib.withAliases` then embeds `lsusb` / `usbhid-dump` as
 # UNPIN_META aliases so unpin recreates the argv[0] shims on PATH.
 #
 # Why source-level fold (not pciutils' objcopy-on-.o route): usbutils builds
@@ -119,7 +119,7 @@ let
       # in off-Windows).
       mkdir -p multicall
       for t in ${lib.concatStringsSep " " applets}; do printf '%s\t%s\n' "$t" "$t"; done > multicall/applets.list
-${lib.multicallTableDispatcherC { name = "usbutils"; defaultApplet = "lsusb"; }}
+${lib.multicallTableDispatcherC { name = "usbutils"; }}
     '';
 
     # One binary: usbutils. Applets are argv[0] aliases (withAliases), not files.

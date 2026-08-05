@@ -35,9 +35,8 @@
       # lsusb.c carries SPDX GPL-2.0-or-later (verified upstream); the embedded
       # usb.ids and a stray GPL-2.0-only file don't change the program's license.
       license = "GPL-2.0-or-later";
-      smoke = [ "--version" ];
-      # `usbutils --version` dispatches to lsusb (defaultApplet) -> "lsusb
-      # (usbutils) 019"; match the suite name.
+      smoke = [ "--unpin-program=lsusb" "--version" ];
+      # lsusb prints "lsusb (usbutils) 019"; match the suite name.
       smokePattern = "usbutils";
 
       # Linux AND darwin fold via the unpin-llvm engine (bitcode multicall);
@@ -58,7 +57,6 @@
         # re-export). Cf. htop / pciutils.
         requires.frameworks = [ "IOKit" "CoreFoundation" "Security" ];
         programs = [ { name = "lsusb"; } { name = "usbhid-dump"; } ];
-        defaultProgram = "lsusb";
       };
 
       build = pkgs:
