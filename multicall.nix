@@ -9,7 +9,8 @@
 # lets meson keep doing the link: lsusb and usbhid-dump share no .c file and
 # collide only on `main` (lsusb's helpers are static; usbhid-dump's globals are
 # all `uhd_*`), so we just rename each main and build a single executable from
-# both source sets + the argv[0] dispatcher (lib.multicallTableDispatcherC).
+# both source sets + the argv[0] dispatcher (rendered from the flake's
+# `lib.multicallTable`).
 #
 # Self-contained names: usbutils 019 resolves names only via udev's binary hwdb
 # (Linux-only, no Windows/macOS analogue). ./names.c restores the historical
@@ -31,7 +32,7 @@
 # stdenv (under windowsBuild `pkgs` is the x86_64-linux root — the cross lives
 # inside mingwStaticCross — so `pkgs.stdenv` would wrongly say "not Windows").
 { lib }:
-{ pkgs, usbutils }:
+{ pkgs, usbutils, winTable }:
 let
   isDarwin = usbutils.stdenv.hostPlatform.isDarwin or false;
   isWindows = usbutils.stdenv.hostPlatform.isWindows or false;
@@ -42,8 +43,10 @@ let
   # per-device WinUSB driver to do anything) -- none of which mingw has -- so on
   # Windows the multicall folds lsusb only. lsusb is the tool that matters: it
   # enumerates + resolves names driverless via libusb's WinUSB backend.
-  withHid = !isWindows;
-  applets = [ "lsusb" ] ++ lib.optional withHid "usbhid-dump";
+  # Read off the declared table rather than re-deciding it here: the source set
+  # meson builds and the applets the dispatcher answers to are one choice, and
+  # spelling it twice is how a binary comes to announce a tool it hasn't got.
+  withHid = lib.elem "usbhid-dump" winTable.announced;
   srcExpr =
     if withHid
     then "lsusb_sources + usbhid_sources + files('multicall/dispatcher.c')"
@@ -112,14 +115,11 @@ let
       printf "\nexecutable('usbutils', %s, dependencies: [libusb, libiconv], install: true)\n" \
         "${srcExpr}" >> meson.build
 
-      # Dispatcher reads multicall/applets.list as a TSV of <applet>\t<fn-base>
-      # (C symbol <fn-base>_main). The source-level rename above turns each
-      # tool's main into <tool>_main, so fn-base IS the tool name — one
-      # self-mapping row per applet (lsusb only on Windows; usbhid-dump folded
-      # in off-Windows).
-      mkdir -p multicall
-      for t in ${lib.concatStringsSep " " applets}; do printf '%s\t%s\n' "$t" "$t"; done > multicall/applets.list
-${lib.multicallTableDispatcherC { name = "usbutils"; }}
+      # applets.list + dispatcher.c, both rendered from the ONE table the flake
+      # declares. The source-level rename above turns each tool's main into
+      # <tool>_main, so every row is self-mapping; usbutils is not itself a
+      # program, so the table's naming rule lists on a bare or unknown name.
+${winTable.emit { }}
     '';
 
     # One binary: usbutils. Applets are argv[0] aliases (withAliases), not files.
@@ -133,7 +133,7 @@ ${lib.multicallTableDispatcherC { name = "usbutils"; }}
   aliased = lib.withAliases pkgs
     {
       primary = "usbutils";
-      aliases = applets;
+      aliases = winTable.announced;
     }
     multicall;
 in

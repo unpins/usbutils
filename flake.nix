@@ -28,6 +28,16 @@
   outputs = { self, unpins-lib }:
     let
       ulib = unpins-lib.lib;
+      # The windows fold's whole dispatch table, declared once: ./multicall.nix
+      # renders applets.list and the dispatcher from it, picks its meson source
+      # set from it, `withAliases` announces it, and `multicall.windowsTable`
+      # hands the same value to CI. One name, not two — usbhid-dump wants
+      # sigaction/SIGUSR1, which mingw has not — and declaring the pair would
+      # name an applet the .exe hasn't got.
+      winTable = ulib.multicallTable {
+        name = "usbutils";
+        applets = [ { name = "lsusb"; } ];
+      };
     in
     ulib.mkStandaloneFlake {
       inherit self;
@@ -57,6 +67,7 @@
         # re-export). Cf. htop / pciutils.
         requires.frameworks = [ "IOKit" "CoreFoundation" "Security" ];
         programs = [ { name = "lsusb"; } { name = "usbhid-dump"; } ];
+        windowsTable = winTable;
       };
 
       build = pkgs:
@@ -106,6 +117,6 @@
 
       windowsBuild = pkgs:
         import ./multicall.nix { lib = pkgs.lib // ulib; }
-          { inherit pkgs; usbutils = (ulib.mingwStaticCross pkgs).usbutils; };
+          { inherit pkgs winTable; usbutils = (ulib.mingwStaticCross pkgs).usbutils; };
     };
 }
