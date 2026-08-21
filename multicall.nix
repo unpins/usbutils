@@ -119,7 +119,9 @@ let
       # declares. The source-level rename above turns each tool's main into
       # <tool>_main, so every row is self-mapping; usbutils is not itself a
       # program, so the table's naming rule lists on a bare or unknown name.
-${winTable.emit { }}
+      # `windows = true`: mingw, so the dispatcher also rewrites the PEB
+      # command line — see nix-lib's note on unpin_fix_cmdline.
+${winTable.emit { windows = true; }}
     '';
 
     # One binary: usbutils. Applets are argv[0] aliases (withAliases), not files.
