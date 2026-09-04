@@ -11,13 +11,15 @@ Part of the [unpins](https://unpins.org) catalog; install it with [`unpin`](http
 
 ## Usage
 
-Run it with [unpin](https://github.com/unpins/unpin) — a bare `usbutils` runs `lsusb`:
+Run a program with [unpin](https://github.com/unpins/unpin):
 
 ```bash
-unpin usbutils                                  # list USB devices
-unpin usbutils -v                               # verbose, with descriptors
+unpin usbutils --unpin-program=lsusb            # list USB devices
+unpin usbutils --unpin-program=lsusb -v         # verbose, with descriptors
 unpin usbutils --unpin-program=usbhid-dump      # dump HID reports (Linux, macOS)
 ```
+
+A bare `unpin usbutils` lists the programs it holds.
 
 To install the commands onto your PATH:
 

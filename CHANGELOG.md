@@ -17,3 +17,6 @@
 - The README said this installs "the `lsusb` command". On Linux and macOS it
   installs two, `lsusb` and `usbhid-dump`; only the Windows binary has just the
   one. Both are named now, with the reason for the difference.
+- The README also said a bare `usbutils` runs `lsusb`. It lists the programs
+  instead — `usbutils` is not itself one of them, which is the catalog's rule.
+  Usage shows the form that works.
