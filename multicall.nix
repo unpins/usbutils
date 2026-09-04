@@ -126,9 +126,15 @@ ${winTable.emit { windows = true; }}
 
     # One binary: usbutils. Applets are argv[0] aliases (withAliases), not files.
     # Keep $out/share/man/man8 for withMan; drop scripts/extra tools.
+    # usbhid-dump.8 goes too: this .exe does not have that program (it wants
+    # sigaction/SIGUSR1, which mingw has not — see winTable), and the man
+    # harvest takes whatever the man tree holds. The announced==embedded guard
+    # only checks that every announced name has a page, so a page with no
+    # program passes it.
     postInstall = ''
       rm -f $out/bin/usb-devices $out/bin/lsusb.py $out/bin/usbreset
       rm -rf $out/share/man/man1
+      rm -f $out/share/man/man8/usbhid-dump.8*
     '';
   });
 

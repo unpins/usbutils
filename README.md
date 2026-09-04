@@ -14,14 +14,18 @@ Part of the [unpins](https://unpins.org) catalog; install it with [`unpin`](http
 Run it with [unpin](https://github.com/unpins/unpin) — a bare `usbutils` runs `lsusb`:
 
 ```bash
-unpin usbutils
+unpin usbutils                                  # list USB devices
+unpin usbutils -v                               # verbose, with descriptors
+unpin usbutils --unpin-program=usbhid-dump      # dump HID reports (Linux, macOS)
 ```
 
-To install the `lsusb` command onto your PATH:
+To install the commands onto your PATH:
 
 ```bash
 unpin install usbutils
 ```
+
+This creates `lsusb`, and `usbhid-dump` on Linux and macOS — it needs `sigaction`/`SIGUSR1`, which Windows has not, so the Windows binary carries `lsusb` alone. `unpin info usbutils` lists every command.
 
 Listing devices needs no privilege and no driver on Linux and Windows — no `sudo`, no administrator. Vendor, product and class names are resolved from a built-in database, so the output is readable out of the box.
 
