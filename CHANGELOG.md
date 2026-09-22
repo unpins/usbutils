@@ -14,6 +14,15 @@
 
 ### Changed
 
+- The Windows binary is now built by the same compiler as the Linux and macOS
+  ones. It is about 5% smaller (2.05 MB to 1.96 MB); the program list, `lsusb
+  --version` both ways (`--unpin-program=lsusb` and the `lsusb` name) and the
+  embedded manual page were checked under Wine.
+
+  It now uses the Universal C Runtime, which is part of Windows 10 and later.
+  On Windows 7 or 8.1 that runtime has to be installed first — it comes through
+  Windows Update. The previous binary did not need it.
+
 - The README said this installs "the `lsusb` command". On Linux and macOS it
   installs two, `lsusb` and `usbhid-dump`; only the Windows binary has just the
   one. Both are named now, with the reason for the difference.

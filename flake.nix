@@ -9,9 +9,9 @@
   inputs.unpins-lib.url = "github:unpins/nix-lib";
 
   # Self-contained static usbutils: ONE multicall binary folding `lsusb` and
-  # `usbhid-dump` (./multicall.nix), with both as argv[0] aliases. usb.ids is
-  # embedded (./names.c + xxd), so vendor / product / class names resolve
-  # everywhere with nothing on disk -- the USB twin of the unpins pciutils.
+  # `usbhid-dump`, with both as argv[0] aliases. usb.ids is embedded (./names.c
+  # + xxd), so vendor / product / class names resolve everywhere with nothing on
+  # disk -- the USB twin of the unpins pciutils.
   #
   # Backends (libusb, unlike pciutils' per-OS native backends):
   #   linux  -> usbfs: lsusb lists devices and resolves names with NO privilege
@@ -22,56 +22,23 @@
   #             as is the sysfs string fallback. usbhid-dump needs the device
   #             not be claimed by the kernel. (Better than lspci on macOS, which
   #             needs root + a boot-arg.)
-  #   windows-> WinUSB (later): libusb enumerates + reads device descriptors
+  #   windows-> WinUSB: libusb enumerates + reads device descriptors
   #             driverless, but full `-v` config/string descriptors need a
-  #             per-device WinUSB/libusbK driver.
+  #             per-device WinUSB/libusbK driver. lsusb only: usbhid-dump wants
+  #             sigaction/SIGUSR1, which mingw has not.
   outputs = { self, unpins-lib }:
     let
       ulib = unpins-lib.lib;
-      # The windows fold's whole dispatch table, declared once: ./multicall.nix
-      # renders applets.list and the dispatcher from it, picks its meson source
-      # set from it, `withAliases` announces it, and `multicall.windowsTable`
-      # hands the same value to CI. One name, not two — usbhid-dump wants
-      # sigaction/SIGUSR1, which mingw has not — and declaring the pair would
-      # name an applet the .exe hasn't got.
-      winTable = ulib.multicallTable {
-        name = "usbutils";
-        applets = [ { name = "lsusb"; } ];
-      };
-    in
-    ulib.mkStandaloneFlake {
-      inherit self;
-      name = "usbutils";
-      # lsusb.c carries SPDX GPL-2.0-or-later (verified upstream); the embedded
-      # usb.ids and a stray GPL-2.0-only file don't change the program's license.
-      license = "GPL-2.0-or-later";
-      smoke = [ "--unpin-program=lsusb" "--version" ];
-      # lsusb prints "lsusb (usbutils) 019"; match the suite name.
-      smokePattern = "usbutils";
-
-      # Linux AND darwin fold via the unpin-llvm engine (bitcode multicall);
-      # Windows folds via the objcopy recipe in ./multicall.nix. The engine
-      # compiles usbutils (lsusb + usbhid-dump are separate upstream executables)
-      # to bitcode and the standalone self-folds them into one `usbutils` binary.
-      # We replicate the app-enabling bits of ./multicall.nix WITHOUT its
-      # source-level main-rename/merge: the portable.patch (with_sysfs /
-      # with_tree_mode / with_udev gating, makes lsusb buildable off-udev) + the
-      # embedded usb.ids (names.c + xxd → names resolve with no companion file) +
-      # dropping libudev/python3. Pure C — no requires.cxx.
-      engine = "unpin-llvm";
-      multicall = {
-        # libusb's darwin backend links -lobjc + IOKit / CoreFoundation /
-        # Security (configure.ac line 195). The mega relinks lsusb + usbhid-dump
-        # from bitcode and can't see meson's own -framework flags, so name them
-        # for the darwin self-fold (-lobjc rides in via CoreFoundation's
-        # re-export). Cf. htop / pciutils.
-        requires.frameworks = [ "IOKit" "CoreFoundation" "Security" ];
-        programs = [ { name = "lsusb"; } { name = "usbhid-dump"; } ];
-        windowsTable = winTable;
-      };
-
-      build = pkgs:
-        pkgs.pkgsStatic.usbutils.overrideAttrs (old: {
+      # One recipe for every target. `sp` is the static set the binary links
+      # against (pkgsStatic, or the mingw cross on windows); `pkgs` the root
+      # that hosts it, for build tools.
+      usbutilsFor = { pkgs, sp }:
+        let
+          host = sp.stdenv.hostPlatform;
+          isWindows = host.isWindows or false;
+          linuxLike = host.isLinux;
+        in
+        sp.usbutils.overrideAttrs (old: {
           # nixpkgs splits a `python` output (for lsusb.py, which we drop);
           # collapse to one.
           outputs = [ "out" ];
@@ -81,20 +48,22 @@
           patches = [ ./portable.patch ./usbutils-win.patch ];
           # libusb only: drop python3 (lsusb.py, not shipped) and let libudev
           # stay unresolved (portable.patch marks it required:false; the embed
-          # names.c replaces it).
+          # names.c replaces it). On mingw, usbmisc.c's UTF-16LE -> UTF-8
+          # string conversion needs libiconv (it is in libc everywhere else).
           buildInputs = builtins.filter
             (x: let n = x.pname or x.name or ""; in
               n == "libusb" || pkgs.lib.hasPrefix "libusb" n)
-            ((old.buildInputs or [ ]) ++ (old.propagatedBuildInputs or [ ]));
+            ((old.buildInputs or [ ]) ++ (old.propagatedBuildInputs or [ ]))
+            ++ pkgs.lib.optional isWindows sp.libiconv;
           propagatedBuildInputs = [ ];
           nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ pkgs.buildPackages.xxd ];
           # sysfs / tree-mode read /sys + <linux/limits.h> → Linux-only. Off on
-          # darwin (no /sys → no `lsusb -t`, no sysfs string fallback, and no
-          # usbreset — portable.patch gates it behind with_sysfs). Names still
-          # resolve everywhere via the embedded usb.ids.
+          # darwin and windows (no /sys → no `lsusb -t`, no sysfs string
+          # fallback, and no usbreset — portable.patch gates it behind
+          # with_sysfs). Names still resolve everywhere via the embedded usb.ids.
           mesonFlags = (old.mesonFlags or [ ]) ++ [
-            "-Dwith_sysfs=${pkgs.lib.boolToString pkgs.stdenv.hostPlatform.isLinux}"
-            "-Dwith_tree_mode=${pkgs.lib.boolToString pkgs.stdenv.hostPlatform.isLinux}"
+            "-Dwith_sysfs=${pkgs.lib.boolToString linuxLike}"
+            "-Dwith_tree_mode=${pkgs.lib.boolToString linuxLike}"
           ];
           doCheck = false;
           postPatch = (old.postPatch or "") + ''
@@ -107,16 +76,57 @@
             # parser, not the udev backend, so libudev is never linked.
             substituteInPlace meson.build \
               --replace "if get_option('with_udev') and libudev.found()" "if true"
+          '' + pkgs.lib.optionalString isWindows ''
+            # usbhid-dump does not compile for mingw (see the header), and
+            # `supportedTarget` already keeps it out of the fold.
+            substituteInPlace meson.build \
+              --replace-fail "executable('usbhid-dump', usbhid_sources, dependencies: libusb, install: true)" ""
           '';
-          # One binary each (lsusb, usbhid-dump); drop scripts + man1.
+          # One binary each (lsusb, usbhid-dump); drop scripts + man1. On
+          # windows usbhid-dump.8 goes too: the man harvest takes whatever the
+          # man tree holds, and that .exe has no such program.
           postInstall = ''
             rm -f $out/bin/usb-devices $out/bin/lsusb.py $out/bin/usbreset
             rm -rf $out/share/man/man1
+          '' + pkgs.lib.optionalString isWindows ''
+            rm -f $out/share/man/man8/usbhid-dump.8*
           '';
+        } // pkgs.lib.optionalAttrs isWindows {
+          # nixpkgs marks usbutils linux+darwin only; we build it for mingw too.
+          meta = (old.meta or { }) // { platforms = pkgs.lib.platforms.all; };
         });
+    in
+    ulib.mkStandaloneFlake {
+      inherit self;
+      name = "usbutils";
+      # lsusb.c carries SPDX GPL-2.0-or-later (verified upstream); the embedded
+      # usb.ids and a stray GPL-2.0-only file don't change the program's license.
+      license = "GPL-2.0-or-later";
+      smoke = [ "--unpin-program=lsusb" "--version" ];
+      # lsusb prints "lsusb (usbutils) 019"; match the suite name.
+      smokePattern = "usbutils";
 
-      windowsBuild = pkgs:
-        import ./multicall.nix { lib = pkgs.lib // ulib; }
-          { inherit pkgs winTable; usbutils = (ulib.mingwStaticCross pkgs).usbutils; };
+      # Every target folds via the unpin-llvm engine (bitcode multicall): lsusb
+      # + usbhid-dump are separate upstream executables, and the standalone
+      # self-folds them into one `usbutils` binary (lsusb alone on windows).
+      # Pure C — no requires.cxx.
+      engine = "unpin-llvm";
+      multicall = {
+        # libusb's darwin backend links -lobjc + IOKit / CoreFoundation /
+        # Security (configure.ac line 195). The mega relinks lsusb + usbhid-dump
+        # from bitcode and can't see meson's own -framework flags, so name them
+        # for the darwin self-fold (-lobjc rides in via CoreFoundation's
+        # re-export). Cf. htop / pciutils.
+        requires.frameworks = [ "IOKit" "CoreFoundation" "Security" ];
+        # The `.exe` on the engine too, not the nixpkgs mingw-gcc cross.
+        windows = true;
+        programs = [
+          { name = "lsusb"; }
+          { name = "usbhid-dump"; supportedTarget = h: !(h.isWindows or false); }
+        ];
+      };
+
+      build = pkgs: usbutilsFor { inherit pkgs; sp = pkgs.pkgsStatic; };
+      windowsBuild = pkgs: usbutilsFor { inherit pkgs; sp = ulib.mingwStaticCross pkgs; };
     };
 }
