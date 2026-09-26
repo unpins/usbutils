@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [019-2] - 2026-09-26
+
 ### Fixed
 
 - `unpin install usbutils` now creates the commands. In the v019-1 release it
