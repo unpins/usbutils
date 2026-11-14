@@ -60,8 +60,8 @@ The [Releases](https://github.com/unpins/usbutils/releases) page has standalone 
   `unpin man usbutils lsusb`.
 - `lsusb` gets the device list and descriptors from
   [libusb](https://libusb.info), whose backends are cross-platform: Linux usbfs,
-  Windows WinUSB (via `cfgmgr32`), macOS IOKit. The Windows build is cross-built
-  with mingw and has no companion DLLs.
+  Windows WinUSB (via `cfgmgr32`), macOS IOKit. The Windows build is built
+  with mingw-w64.
 - Modern upstream usbutils resolves names only through udev's binary hwdb — a
   Linux-only database with no Windows/macOS counterpart. This build restores the
   historical `usb.ids` text parser, feeds it the embedded database, and drops
