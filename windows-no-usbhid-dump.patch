@@ -1,0 +1,14 @@
+Windows: don't build usbhid-dump. It needs sigaction/SIGUSR1, which mingw
+lacks, so it fails to compile; the multicall leaves it out there too.
+
+--- a/meson.build
++++ b/meson.build
+@@ -150,7 +150,7 @@
+   'usbhid-dump/usbhid-dump.c',
+ ]
+ 
+-executable('usbhid-dump', usbhid_sources, dependencies: libusb, install: true)
++
+ 
+ if get_option('with_sysfs')
+ ##############################

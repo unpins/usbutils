@@ -1,3 +1,6 @@
+mingw: usbmisc.c uses <langinfo.h>/nl_langinfo and readlink, which mingw
+lacks, so it fails to compile there. Guard them; inert on other targets.
+
 --- a/usbmisc.c
 +++ b/usbmisc.c
 @@ -10,7 +10,9 @@

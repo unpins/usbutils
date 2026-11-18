@@ -22,8 +22,8 @@
   #             as is the sysfs string fallback. usbhid-dump needs the device
   #             not be claimed by the kernel. (Better than lspci on macOS, which
   #             needs root + a boot-arg.)
-  #   windows-> WinUSB: libusb enumerates + reads device descriptors
-  #             driverless, but full `-v` config/string descriptors need a
+  #   windows-> WinUSB: libusb enumerates + reads device and configuration
+  #             descriptors driverless; only the string descriptors need a
   #             per-device WinUSB/libusbK driver. lsusb only: usbhid-dump wants
   #             sigaction/SIGUSR1, which mingw has not.
   outputs = { self, unpins-lib }:
@@ -44,8 +44,13 @@
           outputs = [ "out" ];
           # portable.patch makes lsusb buildable without udev/sysfs hard-deps;
           # usbutils-win.patch's mingw guards are inert off-Windows. Replace
-          # nixpkgs' fix-paths.patch (only rewrites lsusb.py, which we drop).
-          patches = [ ./portable.patch ./usbutils-win.patch ];
+          # nixpkgs' fix-paths.patch (only rewrites lsusb.py, which we drop)
+          # and, on darwin, its fetch of the same portable.patch. A patch
+          # nixpkgs adds later fails the assert instead of vanishing.
+          patches =
+            assert builtins.length (old.patches or [ ]) == (if host.isDarwin then 2 else 1);
+            [ ./portable.patch ./usbutils-win.patch ./embed-names.patch ]
+            ++ pkgs.lib.optional isWindows ./windows-no-usbhid-dump.patch;
           # libusb only: drop python3 (lsusb.py, not shipped) and let libudev
           # stay unresolved (portable.patch marks it required:false; the embed
           # names.c replaces it). On mingw, usbmisc.c's UTF-16LE -> UTF-8
@@ -60,27 +65,19 @@
           # sysfs / tree-mode read /sys + <linux/limits.h> → Linux-only. Off on
           # darwin and windows (no /sys → no `lsusb -t`, no sysfs string
           # fallback, and no usbreset — portable.patch gates it behind
-          # with_sysfs). Names still resolve everywhere via the embedded usb.ids.
+          # with_sysfs, so it exists on Linux only). Names still resolve
+          # everywhere via the embedded usb.ids.
           mesonFlags = (old.mesonFlags or [ ]) ++ [
             "-Dwith_sysfs=${pkgs.lib.boolToString linuxLike}"
             "-Dwith_tree_mode=${pkgs.lib.boolToString linuxLike}"
           ];
+          # usbutils ships no test suite (meson.build declares no test()).
           doCheck = false;
           postPatch = (old.postPatch or "") + ''
             # Real usb.ids text parser (embed-backed) + bake hwdata's usb.ids in.
             cp ${./names.c} names.c
             xxd -i -n unpin_usb_ids \
               ${pkgs.buildPackages.hwdata}/share/hwdata/usb.ids > usb_ids.h
-            # Always take the names.c (embed) branch + define HAVE_UDEV (which
-            # gates names_init()/names_exit() in lsusb.c). names.c is the embed
-            # parser, not the udev backend, so libudev is never linked.
-            substituteInPlace meson.build \
-              --replace "if get_option('with_udev') and libudev.found()" "if true"
-          '' + pkgs.lib.optionalString isWindows ''
-            # usbhid-dump does not compile for mingw (see the header), and
-            # `supportedTarget` already keeps it out of the fold.
-            substituteInPlace meson.build \
-              --replace-fail "executable('usbhid-dump', usbhid_sources, dependencies: libusb, install: true)" ""
           '';
           # One binary each (lsusb, usbhid-dump); drop scripts + man1. On
           # windows usbhid-dump.8 goes too: the man harvest takes whatever the

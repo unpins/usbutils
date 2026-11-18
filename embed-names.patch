@@ -1,0 +1,16 @@
+Always build the embedded usb.ids parser (names.c) and define HAVE_UDEV,
+which gates names_init()/names_exit() in lsusb.c. names.c is the embed
+parser, not the udev backend, so libudev is never linked. Applies after
+portable.patch.
+
+--- a/meson.build
++++ b/meson.build
+@@ -120,7 +120,7 @@
+   ]
+ endif
+ 
+-if get_option('with_udev') and libudev.found()
++if true
+   add_project_arguments('-DHAVE_UDEV', language : 'c')
+ 
+   lsusb_sources += [

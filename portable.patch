@@ -1,3 +1,10 @@
+Make lsusb buildable without udev or sysfs. Upstream requires libudev for
+name lookup, which exists only on Linux; this makes it optional (the embedded
+names.c takes its place) and gates the sysfs-only parts (tree mode, usbreset)
+behind meson options. From Homebrew/homebrew-core 1cf441a0
+(Patches/usbutils/portable.patch), the patch nixpkgs fetches for darwin; here
+it applies on every target.
+
 diff --git a/lsusb.c b/lsusb.c
 index 0b74182..ebb408a 100644
 --- a/lsusb.c
