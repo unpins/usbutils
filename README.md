@@ -17,6 +17,7 @@ Run a program with [unpin](https://github.com/unpins/unpin):
 unpin usbutils --unpin-program=lsusb            # list USB devices
 unpin usbutils --unpin-program=lsusb -v         # verbose, with descriptors
 unpin usbutils --unpin-program=usbhid-dump      # dump HID reports (Linux, macOS)
+unpin usbutils --unpin-program=usbreset 1d6b:0002  # reset a device (Linux)
 ```
 
 A bare `unpin usbutils` lists the programs it holds.
@@ -27,7 +28,7 @@ To install the commands onto your PATH:
 unpin install usbutils
 ```
 
-This creates `lsusb`, and `usbhid-dump` on Linux and macOS — it needs `sigaction`/`SIGUSR1`, which Windows has not, so the Windows binary carries `lsusb` alone. `unpin info usbutils` lists every command.
+This creates `lsusb`; `usbhid-dump` on Linux and macOS — it needs `sigaction`/`SIGUSR1`, which Windows has not; and `usbreset` on Linux, where it resets a device through usbfs. `unpin info usbutils` lists every command.
 
 Listing devices needs no privilege and no driver on Linux and Windows — no `sudo`, no administrator. Vendor, product and class names are resolved from a built-in database, so the output is readable out of the box.
 
@@ -54,7 +55,8 @@ The [Releases](https://github.com/unpins/usbutils/releases) page has standalone 
 
 - `usbutils` is the canonical binary; `lsusb` is the command you run, recreated
   on PATH by `unpin install`. On Linux and macOS it also carries `usbhid-dump`
-  (HID report-descriptor dumps); the Windows build ships `lsusb` only.
+  (HID report-descriptor dumps), and on Linux `usbreset`; the Windows build
+  ships `lsusb` only.
 - The USB ID database (`usb.ids`) is embedded, so names resolve with no
   companion file on every OS. The man pages are embedded too —
   `unpin man usbutils lsusb`.
@@ -70,11 +72,14 @@ The [Releases](https://github.com/unpins/usbutils/releases) page has standalone 
 - **Linux**: lists devices and resolves names with no privilege; `lsusb -t`
   (device tree) and the per-device string fallback read `/sys` directly.
   `usbhid-dump` opens and claims the device, which needs root.
-- **Windows**: `lsusb` enumerates and reads device/configuration descriptors
+- **Windows**: `lsusb -t` (device tree) and `lsusb -D <device>` are
+  unavailable — both read Linux's `/sys` and `/dev/bus/usb`. `lsusb` enumerates and reads device/configuration descriptors
   with no driver. A device's own string descriptors (its self-reported
   manufacturer/product text) need the device opened, which needs a per-device
   WinUSB driver — without one those fields show their index only, while the
   vendor/product names still come from the embedded database.
+- **Not included:** `usb-devices` (a shell script over `/sys`) and `lsusb.py`
+  (a Python script), which can't ride a single binary.
 - **macOS**: lists via IOKit; `lsusb -t` is unavailable (no `/sys`). A normal
   Terminal session works; a headless SSH session cannot load the IOKit USB
   plugin (`kIOReturnNoResources`) and lists nothing.

@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Added
+
+- `usbreset` on Linux, as nixpkgs installs it: reset a USB device by
+  vendor:product, bus/device, serial number or product name.
+
 ## [019-2] - 2026-09-26
 
 ### Fixed

@@ -79,12 +79,16 @@
             xxd -i -n unpin_usb_ids \
               ${pkgs.buildPackages.hwdata}/share/hwdata/usb.ids > usb_ids.h
           '';
-          # One binary each (lsusb, usbhid-dump); drop scripts + man1. On
-          # windows usbhid-dump.8 goes too: the man harvest takes whatever the
-          # man tree holds, and that .exe has no such program.
+          # One binary each (lsusb, usbhid-dump, and usbreset on Linux, which
+          # meson builds but doesn't install — nixpkgs installs it by hand);
+          # drop the scripts + man1 (usb-devices.1). On windows usbhid-dump.8
+          # goes too: the man harvest takes whatever the man tree holds, and
+          # that .exe has no such program.
           postInstall = ''
-            rm -f $out/bin/usb-devices $out/bin/lsusb.py $out/bin/usbreset
+            rm -f $out/bin/usb-devices $out/bin/lsusb.py
             rm -rf $out/share/man/man1
+          '' + pkgs.lib.optionalString linuxLike ''
+            install -Dm555 usbreset -t $out/bin
           '' + pkgs.lib.optionalString isWindows ''
             rm -f $out/share/man/man8/usbhid-dump.8*
           '';
@@ -96,9 +100,9 @@
     ulib.mkStandaloneFlake {
       inherit self;
       name = "usbutils";
-      # lsusb.c carries SPDX GPL-2.0-or-later (verified upstream); the embedded
-      # usb.ids and a stray GPL-2.0-only file don't change the program's license.
-      license = "GPL-2.0-or-later";
+      # lsusb.c carries SPDX GPL-2.0-or-later; usbreset.c and the man pages are
+      # GPL-2.0-only (as nixpkgs lists them).
+      license = "GPL-2.0-or-later AND GPL-2.0-only";
       smoke = [ "--unpin-program=lsusb" "--version" ];
       # lsusb prints "lsusb (usbutils) 019"; match the suite name.
       smokePattern = "usbutils";
@@ -120,6 +124,8 @@
         programs = [
           { name = "lsusb"; }
           { name = "usbhid-dump"; supportedTarget = h: !(h.isWindows or false); }
+          # usbreset.c resets through usbfs ioctls; meson builds it with_sysfs.
+          { name = "usbreset"; noMan = true; supportedTarget = h: h.isLinux; }
         ];
       };
 
